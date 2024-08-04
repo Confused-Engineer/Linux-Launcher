@@ -9,12 +9,14 @@ jobs:
     runs-on: [self-hosted, windows]
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --all-features
 
       - uses: "marvinpinto/action-automatic-releases@latest"
+      
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "nightly"
