@@ -1,0 +1,30 @@
+[package]
+name = "linuxlauncher"
+version = "0.1.0"
+edition = "2021"
+#rust-version = "1.76"
+publish = false
+authors = ["Confused Engineer"]
+build = "assets/build.rs"
+
+
+[build-dependencies]
+winres = "0.1"
+static_vcruntime = "2.0"
+
+[[bin]]
+name = "LinuxLauncher"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.28.1" , features = [ "default", "persistence"]}
+
+serde = { version = "1", features = ["derive"] }
+env_logger = { version = "0.10", default-features = false, features = [
+    "auto-color",
+    "humantime",
+] }
+
+egui_extras = { version = "*", features = ["all_loaders"] }
+image = { version = "0.25", features = ["jpeg", "png"] }
+rust-ini = "0.21.0"
