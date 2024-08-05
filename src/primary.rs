@@ -3,7 +3,8 @@ use eframe::egui::{self, include_image};
 pub fn primary_page(ui: &mut eframe::egui::Ui)
 {
     let mut config_file = crate::config::ApplicationEntries::new();
-
+    let column_count = 7; // default: 6
+    let image_size = [115.0,115.0]; // default 130,130
     if config_file.is_empty()
     {
         ui.heading("Config File Not Found or is in Error");
@@ -57,19 +58,19 @@ pub fn primary_page(ui: &mut eframe::egui::Ui)
                 let icon = icon.unwrap_or("");
                 if icon.is_empty()
                 {
-                    if ui.add_sized([130.0,130.0], egui::widgets::ImageButton::new(include_image!("../assets/favicon.ico")).frame(false).rounding(10.0)).clicked()
+                    if ui.add_sized(image_size, egui::widgets::ImageButton::new(include_image!("../assets/favicon.ico")).frame(false).rounding(10.0)).clicked()
                     {
                         launch(command, args.unwrap_or(""));
                         
                     }
                 } else if icon.contains("https://") {
-                    if ui.add_sized([130.0,130.0], egui::widgets::ImageButton::new(icon).frame(false).rounding(10.0)).clicked()
+                    if ui.add_sized(image_size, egui::widgets::ImageButton::new(icon).frame(false).rounding(10.0)).clicked()
                     {
                         launch(command, args.unwrap_or(""));
                         
                     }
                 } else {
-                    if ui.add_sized([130.0,130.0], egui::widgets::ImageButton::new(format!("file://{}", icon)).frame(false).rounding(10.0)).clicked()
+                    if ui.add_sized(image_size, egui::widgets::ImageButton::new(format!("file://{}", icon)).frame(false).rounding(10.0)).clicked()
                     {
                         launch(command, args.unwrap_or(""));
 
@@ -91,7 +92,7 @@ pub fn primary_page(ui: &mut eframe::egui::Ui)
 
             });
 
-            if (x != 0) && (x % 6 == 0)
+            if (x != 0) && (x % column_count == 0)
             {
                 ui.end_row();
             }  

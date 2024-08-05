@@ -12,7 +12,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    let size = [950.0, 550.0];
+    let size = [1006.0, 500.0];
 
     let fancyoptions = eframe::NativeOptions {
         run_and_return: true,
