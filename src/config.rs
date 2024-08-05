@@ -42,7 +42,7 @@ impl ApplicationEntries
     pub fn current_file() -> String
     {
         let exe_name = std::env::current_exe().unwrap().display().to_string().split("\\").last().unwrap().to_string();
-        let path = std::env::current_exe().unwrap().display().to_string().replace(&exe_name, "config.ini");
+        let path = std::env::current_exe().unwrap().display().to_string().replace(&exe_name, "LL.ini");
         return path;
     }
 
