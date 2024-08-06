@@ -8,8 +8,8 @@ use crate::primary::primary_page;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] 
 pub struct MyApp {
-    strign: String,
-    dm: bool,
+    #[serde(skip)]
+    search: String,
     #[serde(skip)]
     settings: bool,
 
@@ -18,8 +18,7 @@ pub struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            dm: true,
-            strign: String::new(),
+            search: String::new(),
             settings: false
         }
     }
@@ -47,7 +46,7 @@ impl eframe::App for MyApp {
             }
 
             if !settings {
-                primary_page(ui);
+                primary_page(ui, &mut self.search);
             }
             
 
