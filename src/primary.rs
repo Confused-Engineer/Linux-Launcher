@@ -48,15 +48,9 @@ pub fn primary_page(ui: &mut eframe::egui::Ui, search: &mut String)
 
     ui.add_space(10.0);
     egui::ScrollArea::vertical().show(ui, |ui|{
-
         egui::Grid::new("issource").spacing([30.0,15.0]).show(ui, |ui|{
-
-
             layout(ui, dimensions, config, search.clone());
-
-            
         });
-
     });
     
 }
@@ -73,9 +67,9 @@ fn layout(ui: &mut eframe::egui::Ui, dimensions: Dimension, config: ini::Ini, se
     
 
 
-    let sections = config_sect.sections().enumerate();
-    
-    for (x, section) in sections
+    let sections = config_sect.sections();
+    let mut x = 1;
+    for section in sections
             {
                 if section.is_none()
                 {
@@ -140,8 +134,12 @@ fn layout(ui: &mut eframe::egui::Ui, dimensions: Dimension, config: ini::Ini, se
 
                 if (x != 0) && (x % dimensions.column_count == 0)
                 {
+                    x += 1;
                     ui.end_row();
-                }  
+                }  else {
+                    x += 1;
+                }
+                
             }
     
 }

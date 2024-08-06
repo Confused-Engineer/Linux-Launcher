@@ -30,6 +30,7 @@ impl ApplicationEntries
             let _ = std::fs::remove_file(&currentpath);
         }
 
+        
         let _ = std::fs::write(currentpath, include_str!("../assets/config.ini"));
         Self::new()
     }
