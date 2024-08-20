@@ -11,7 +11,9 @@ pub struct MyApp {
     #[serde(skip)]
     search: String,
     #[serde(skip)]
-    settings: bool,
+    settings_rc: std::rc::Rc<std::cell::RefCell<bool>>,
+    #[serde(skip)]
+    debug: std::rc::Rc<std::cell::RefCell<bool>>,
 
 }
 
@@ -19,7 +21,8 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             search: String::new(),
-            settings: false
+            settings_rc: std::rc::Rc::new(std::cell::RefCell::new(false)),
+            debug: std::rc::Rc::new(std::cell::RefCell::new(false)),
         }
     }
 }
@@ -36,21 +39,24 @@ impl eframe::App for MyApp {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         //if self.dm { ctx.set_visuals(Visuals::dark()); } else { ctx.set_visuals(Visuals::light()); };
-        let settings = self.settings.clone();
-
         custom_window_frame(ctx, "Linux Launcher", |ui| {
             //ui.add_space(10.0);
-            if settings { 
+            if *self.settings_rc.borrow() { 
                 crate::settings::settings_page(ui);
-                
             }
 
-            if !settings {
+            if *self.debug.borrow()
+            {
+                #[cfg(debug_assertions)]
+                crate::debug::debug_page(ui);
+            }
+
+            if !*self.settings_rc.borrow() && !*self.debug.borrow(){
                 primary_page(ui, &mut self.search);
             }
             
 
-        }, &mut self.settings);
+        },self.settings_rc.clone(), self.debug.clone());
     }
 }
 
@@ -69,9 +75,11 @@ impl MyApp {
 
         Default::default()
     }
+
+
 }
 
-fn custom_window_frame(ctx: &egui::Context, title: &str, add_contents: impl FnOnce(&mut egui::Ui), show_settings: &mut bool) {
+fn custom_window_frame(ctx: &egui::Context, title: &str, add_contents: impl FnOnce(&mut egui::Ui), settings_rc: std::rc::Rc<std::cell::RefCell<bool>>, debug: std::rc::Rc<std::cell::RefCell<bool>>) {
     use egui::*;
 
     let panel_frame = egui::Frame {
@@ -91,7 +99,7 @@ fn custom_window_frame(ctx: &egui::Context, title: &str, add_contents: impl FnOn
             rect.max.y = rect.min.y + title_bar_height;
             rect
         };
-        title_bar_ui(ui, title_bar_rect, title, show_settings);
+        title_bar_ui(ui, title_bar_rect, title, settings_rc, debug);
 
         // Add the contents:
         let content_rect = {
@@ -105,7 +113,7 @@ fn custom_window_frame(ctx: &egui::Context, title: &str, add_contents: impl FnOn
     });
 }
 
-fn title_bar_ui(ui: &mut egui::Ui, title_bar_rect: eframe::epaint::Rect, title: &str, show_settings: &mut bool) {
+fn title_bar_ui(ui: &mut egui::Ui, title_bar_rect: eframe::epaint::Rect, title: &str, settings_rc: std::rc::Rc<std::cell::RefCell<bool>>, debug: std::rc::Rc<std::cell::RefCell<bool>>) {
     use egui::*;
 
     let painter = ui.painter();
@@ -145,7 +153,7 @@ fn title_bar_ui(ui: &mut egui::Ui, title_bar_rect: eframe::epaint::Rect, title: 
             ui.spacing_mut().item_spacing.x = 0.0;
             ui.visuals_mut().button_frame = false;
             ui.add_space(8.0);
-            settings(ui, show_settings);
+            settings(ui, settings_rc, debug);
             
             
         });
@@ -192,7 +200,7 @@ fn close(ui: &mut egui::Ui) {
 }
 
 
-fn settings(ui: &mut egui::Ui, show_settings: &mut bool) {
+fn settings(ui: &mut egui::Ui, settings_rc: std::rc::Rc<std::cell::RefCell<bool>>, debug: std::rc::Rc<std::cell::RefCell<bool>>) {
     use egui::{Button, RichText};
 
     let button_height = 14.0;
@@ -200,8 +208,31 @@ fn settings(ui: &mut egui::Ui, show_settings: &mut bool) {
     let minimized_response = ui
         .add(Button::new(RichText::new("⛭").size(button_height)))
         .on_hover_text("Show Settings");
+    
+
     if minimized_response.clicked() {
-        *show_settings = !*show_settings
+        settings_rc.replace_with(|old| {
+            let old = !*old;
+            old
+        });
+        debug.replace_with(|_| false);
+    }
+    
+    #[cfg(debug_assertions)]
+    ui.add_space(8.0);
+
+    #[cfg(debug_assertions)]
+    let debug_response = ui
+    .add(Button::new(RichText::new("🐛").size(button_height)))
+    .on_hover_text("Show Debug");
+
+    #[cfg(debug_assertions)]
+    if debug_response.clicked() {
+        debug.replace_with(|old| {
+            let old = !*old;
+            old
+        });
+        settings_rc.replace_with(|_| false);
     }
 
 }

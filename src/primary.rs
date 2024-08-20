@@ -59,15 +59,10 @@ pub fn primary_page(ui: &mut eframe::egui::Ui, search: &mut String)
 
 fn layout(ui: &mut eframe::egui::Ui, dimensions: Dimension, config: ini::Ini, search: String)
 {
-    let config_sect = config.clone();
-    let mut config_icon = config.clone();
-    let mut config_title = config.clone();
-    let mut config_cmd = config.clone();
-    let mut config_args = config.clone();
+
     
 
-
-    let sections = config_sect.sections();
+    let sections = config.sections();
     let mut x = 1;
     for section in sections
             {
@@ -75,17 +70,13 @@ fn layout(ui: &mut eframe::egui::Ui, dimensions: Dimension, config: ini::Ini, se
                 {
                     continue;
                 }
+                let mut config_options = config.clone();
+                let config_section = config_options.with_section(section);
 
-                let section_cmd = config_cmd.with_section(section);
-                let section_icon = config_icon.with_section(section);
-                let section_title = config_title.with_section(section);
-                let section_args = config_args.with_section(section);
-                
-
-                let icon = section_icon.get("icon");
-                let command = section_cmd.get("command");
-                let title = section_title.get("title");
-                let args = section_args.get("arguments");
+                let icon = config_section.get("icon");
+                let command = config_section.get("command");
+                let title = config_section.get("title");
+                let args = config_section.get("arguments");
 
                 if command.is_none() || title.is_none()
                 {
