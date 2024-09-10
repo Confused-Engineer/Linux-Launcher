@@ -6,18 +6,14 @@ use linuxlauncher::*;
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-    let _options = eframe::NativeOptions {
-        run_and_return: true,
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
-        ..Default::default()
-    };
 
     let size = [1006.0, 600.0];
 
     let fancyoptions = eframe::NativeOptions {
         run_and_return: true,
         viewport: egui::ViewportBuilder::default()
-        .with_decorations(false) 
+        .with_resizable(true)
+        .with_decorations(std::path::Path::new("debug").exists()) 
         .with_inner_size(size)
         .with_min_inner_size(size)
         .with_max_inner_size(size)

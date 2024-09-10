@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self};
 
 use crate::primary::primary_page;
 
@@ -38,12 +38,18 @@ impl eframe::App for MyApp {
 
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize([1006.0, 600.0].into()));
         //if self.dm { ctx.set_visuals(Visuals::dark()); } else { ctx.set_visuals(Visuals::light()); };
         custom_window_frame(ctx, "Linux Launcher", |ui| {
             //ui.add_space(10.0);
             if *self.settings_rc.borrow() { 
                 crate::settings::settings_page(ui);
             }
+
+            //ui.painter().circle_filled(Pos2::new(50.0, 50.0), 20.0, Color32::from_rgb(0, 140, 255) );
+
+            
 
             if *self.debug.borrow()
             {
@@ -91,7 +97,8 @@ fn custom_window_frame(ctx: &egui::Context, title: &str, add_contents: impl FnOn
     };
 
     CentralPanel::default().frame(panel_frame).show(ctx, |ui| {
-        let app_rect = ui.max_rect();
+        //let app_rect = ui.max_rect();
+        let app_rect = ui.min_rect();
 
         let title_bar_height = 32.0;
         let title_bar_rect = {
