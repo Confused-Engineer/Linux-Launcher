@@ -25,7 +25,7 @@ env_logger = { version = "0.10", default-features = false, features = [
     "humantime",
 ] }
 
-egui_extras = { version = "*", features = ["all_loaders"] }
+egui_extras = { version = "0.28.1", features = ["all_loaders"] }
 image = { version = "0.25", features = ["jpeg", "png"] }
 rust-ini = "0.21.0"
 
