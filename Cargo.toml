@@ -5,7 +5,7 @@ edition = "2021"
 #rust-version = "1.76"
 publish = false
 authors = ["Confused Engineer"]
-build = "assets/build.rs"
+build = "src/build.rs"
 
 
 [build-dependencies]

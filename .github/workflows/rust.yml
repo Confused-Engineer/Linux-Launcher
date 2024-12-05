@@ -3,24 +3,54 @@ on: [push]
 name: Rust-Release-Nightly
 
 jobs:
-  build_and_test:
-    name: Rust project
-    #runs-on: windows-latest
-    runs-on: [self-hosted, windows]
+
+  build_windows_exe:
+    name: Build Windows Installer
+    runs-on: "windows"
     steps:
       - uses: actions/checkout@v4
+      - name: build
+        run: |
+          cargo build --release
+          Copy-Item -Path ".\target\release\LinuxLauncher.exe" -Destination ".\assets\"
+          Start-Process -FilePath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" -ArgumentList @(".\assets\Setup.iss") -NoNewWindow -Wait
 
-      - uses: actions-rs/cargo@v1
+      - name: Temporarily Save File
+        uses: actions/upload-artifact@v4
         with:
-          command: build
-          args: --release --all-features
-
-      - uses: "marvinpinto/action-automatic-releases@latest"
+          name: exe
+          path: ./assets/Output/LinuxLauncherSetup.exe
+          retention-days: 1
       
+      - name: cleanup
+        run: |
+          cargo clean
+          Remove-Item ".\assets\LinuxLauncher.exe"
+          Remove-Item ".\assets\Output" -Recurse -Force  
+
+
+  publish_release:
+    name: Publish Files
+    runs-on: "windows"
+    needs: "build_windows_exe"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Get Files
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - uses: "ModeSevenIndustrialSolutions/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "nightly"
           prerelease: true
-          title: "Development Build"
+          title: "Dev Build"
           files: |
-            ./target/release/LinuxLauncher.exe
+            ./artifacts/LinuxLauncherSetup.exe
+
+
+
