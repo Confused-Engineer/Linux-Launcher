@@ -35,13 +35,9 @@ SignTool=signtool $f
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
-[Tasks]
-;Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-
 [Files]
 Source: "{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-;Source: "C:\Users\david\Documents\Programming\Installer\LinuxLauncher\favicon.ico"; DestDir: "{app}"; Flags: ignoreversion
-; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}";
