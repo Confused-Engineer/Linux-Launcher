@@ -12,6 +12,7 @@ jobs:
       - name: build
         run: |
           cargo build --release
+          signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a ".\target\release\LinuxLauncher.exe"
           Copy-Item -Path ".\target\release\LinuxLauncher.exe" -Destination ".\assets\"
           Write-Output "Copied Item"
           Start-Process -FilePath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" -ArgumentList @(".\assets\Setup.iss") -NoNewWindow -Wait
