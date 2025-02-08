@@ -17,17 +17,17 @@ name = "LinuxLauncher"
 path = "src/main.rs"
 
 [dependencies]
-eframe = { version = "0.28.1" , features = [ "default", "persistence"]}
+eframe = { version = "0.31.0" , features = ["default"]}
 
-serde = { version = "1", features = ["derive"] }
-env_logger = { version = "0.10", default-features = false, features = [
+env_logger = { version = "0.11.6", default-features = false, features = [
     "auto-color",
     "humantime",
 ] }
 
-egui_extras = { version = "0.28.1", features = ["all_loaders"] }
-image = { version = "0.25", features = ["jpeg", "png"] }
+egui_extras = { version = "0.31.0", features = ["all_loaders"] }
+image = { version = "0.25.5", features = ["jpeg", "png"] }
 rust-ini = "0.21.0"
+davids-standard-library = {git = "https://github.com/Confused-Engineer/davids-standard-library.git"}
 
 [profile.release]
 lto = "fat"
