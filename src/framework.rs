@@ -184,6 +184,8 @@ fn close_minimize(ui: &mut egui::Ui) {
         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
     }
 
+    ui.add_space(5.0);
+
     let minimized_response = ui
         .add(Button::new(RichText::new("🗕").size(button_height)))
         .on_hover_text("Minimize the window");
