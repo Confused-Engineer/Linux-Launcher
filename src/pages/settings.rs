@@ -59,6 +59,7 @@ pub fn page_settings(ui: &mut egui::Ui, config: std::rc::Rc<std::cell::RefCell<i
                 {
                     if ui.button(name).clicked()
                     {
+                        section.borrow_mut().clear();
                         let mut config_clone = config.borrow().clone();
                         section.borrow_mut().unique_id = name.to_owned();
                         
