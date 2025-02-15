@@ -19,12 +19,17 @@ jobs:
           Copy-Item -Path ".\target\release\LinuxLauncher.exe" -Destination ".\assets\"
           Write-Output "Copied Item"
           Start-Process -FilePath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" -ArgumentList @(".\assets\Setup.iss") -NoNewWindow -Wait
+          checksum generate ".\assets\LinuxLauncher.exe" -o ".\assets\checksums.txt" 
+          checksum generate ".\assets\Output\LinuxLauncherSetup.exe" -o ".\assets\checksums.txt"
 
       - name: Temporarily Save File
         uses: actions/upload-artifact@v4
         with:
-          name: exe
-          path: ./assets/Output/LinuxLauncherSetup.exe
+          name: windows
+          path: |
+            ./assets/Output/LinuxLauncherSetup.exe
+            ./assets/LinuxLauncher.exe
+            ./assets/checksums.txt
           retention-days: 1
       
       - name: cleanup
@@ -32,6 +37,7 @@ jobs:
           cargo clean
           Remove-Item ".\assets\LinuxLauncher.exe"
           Remove-Item ".\assets\Output" -Recurse -Force  
+          Remove-Item ".\assets\checksums.txt"
 
 
   publish_release:
@@ -56,6 +62,8 @@ jobs:
           title: "Dev Build"
           files: |
             ./artifacts/LinuxLauncherSetup.exe
+            ./artifacts/checksums.txt
+            ./artifacts/LinuxLauncher.exe
 
 
 
