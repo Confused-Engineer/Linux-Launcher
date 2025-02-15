@@ -61,7 +61,7 @@ jobs:
           prerelease: true
           title: "Dev Build"
           files: |
-            ./artifacts/LinuxLauncherSetup.exe
+            ./artifacts/Output/LinuxLauncherSetup.exe
             ./artifacts/checksums.txt
             ./artifacts/LinuxLauncher.exe
 
