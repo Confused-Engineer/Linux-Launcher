@@ -1,25 +1,30 @@
-on:
-  push:
-    branches:
-      - main
-
 name: Rust-Release-Nightly
 
-jobs:
+on:
+  push:
+    branches: [main]
 
+jobs:
   build_windows_exe:
     name: Build Windows Installer
+    # Self-hosted runner with signtool, Inno Setup and `checksum` installed.
     runs-on: "windows"
     steps:
       - uses: actions/checkout@v4
-      - name: build
+
+      - name: Test
+        run: cargo test --release --locked
+
+      - name: Build and package
         run: |
-          cargo build --release
+          $ErrorActionPreference = "Stop"
+          $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages[0].version
+          cargo build --release --locked
           signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a ".\target\release\LinuxLauncher.exe"
           Copy-Item -Path ".\target\release\LinuxLauncher.exe" -Destination ".\assets\"
-          Write-Output "Copied Item"
-          Start-Process -FilePath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" -ArgumentList @(".\assets\Setup.iss") -NoNewWindow -Wait
-          checksum generate ".\assets\LinuxLauncher.exe" -o ".\assets\checksums.txt" 
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" ".\assets\Setup.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+          checksum generate ".\assets\LinuxLauncher.exe" -o ".\assets\checksums.txt"
           checksum generate ".\assets\Output\LinuxLauncherSetup.exe" -o ".\assets\checksums.txt"
 
       - name: Temporarily Save File
@@ -31,23 +36,22 @@ jobs:
             ./assets/LinuxLauncher.exe
             ./assets/checksums.txt
           retention-days: 1
-      
-      - name: cleanup
+
+      - name: Cleanup
+        if: always()
         run: |
           cargo clean
-          Remove-Item ".\assets\LinuxLauncher.exe"
-          Remove-Item ".\assets\Output" -Recurse -Force  
-          Remove-Item ".\assets\checksums.txt"
-
+          Remove-Item ".\assets\LinuxLauncher.exe" -ErrorAction SilentlyContinue
+          Remove-Item ".\assets\Output" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item ".\assets\checksums.txt" -ErrorAction SilentlyContinue
 
   publish_release:
     name: Publish Files
     runs-on: "windows"
-    needs: "build_windows_exe"
+    needs: build_windows_exe
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v4
+
       - name: Get Files
         uses: actions/download-artifact@v4
         with:
@@ -64,6 +68,3 @@ jobs:
             ./artifacts/Output/LinuxLauncherSetup.exe
             ./artifacts/checksums.txt
             ./artifacts/LinuxLauncher.exe
-
-
-
