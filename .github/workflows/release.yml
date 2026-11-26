@@ -1,0 +1,91 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Never run two releases at once; queue instead of cancelling.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXE_NAME: LinuxLauncher.exe
+
+jobs:
+  build-and-release:
+    name: Build, sign and release
+    runs-on: windows
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cargo build --release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Off until a code-signing cert is back on the runner. To re-enable, set
+      # repository variable SIGN_EXE=true (Settings > Secrets and variables > Actions > Variables).
+      - name: Sign
+        if: vars.SIGN_EXE == 'true'
+        run: |
+          signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a ".\target\release\$env:EXE_NAME"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Read version and check for existing tag
+        id: version
+        run: |
+          $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages[0].version
+          $existing = git ls-remote --tags origin "refs/tags/v$version"
+          $isNew = if ($existing) { 'false' } else { 'true' }
+          Write-Output "Version $version (new: $isNew)"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "new=$isNew"
+
+      # Always available from the run page, including manual runs on other branches.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.EXE_NAME }}
+          path: target/release/${{ env.EXE_NAME }}
+          retention-days: 7
+
+      # ---- Publishing: main only ----
+      - name: Publish versioned release
+        if: github.ref == 'refs/heads/main' && steps.version.outputs.new == 'true'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          commit: ${{ github.sha }}
+          artifacts: target/release/${{ env.EXE_NAME }}
+          generateReleaseNotes: true
+          makeLatest: true
+
+      - name: Move nightly tag to this commit
+        if: github.ref == 'refs/heads/main'
+        shell: cmd
+        run: |
+          git tag -f nightly %GITHUB_SHA% || exit /b 1
+          git push -f origin refs/tags/nightly || exit /b 1
+
+      - name: Publish nightly prerelease
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: nightly
+          name: Dev Build
+          body: "Rolling build of ${{ github.sha }} (v${{ steps.version.outputs.version }})."
+          artifacts: target/release/${{ env.EXE_NAME }}
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          prerelease: true
+          makeLatest: false
