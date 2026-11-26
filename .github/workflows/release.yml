@@ -24,7 +24,7 @@ jobs:
       run:
         shell: powershell
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build
         run: |
@@ -51,7 +51,7 @@ jobs:
 
       # Always available from the run page, including manual runs on other branches.
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.EXE_NAME }}
           path: target/release/${{ env.EXE_NAME }}
