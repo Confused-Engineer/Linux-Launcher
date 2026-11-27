@@ -15,6 +15,7 @@ concurrency:
 
 env:
   EXE_NAME: LinuxLauncher.exe
+  SETUP_NAME: LinuxLauncherSetup.exe
 
 jobs:
   build-and-release:
@@ -49,12 +50,35 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "new=$isNew"
 
+      # Per-user installer (PrivilegesRequired=lowest in Setup.iss).
+      - name: Build installer
+        env:
+          SIGN_EXE: ${{ vars.SIGN_EXE }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Inno Setup 7 (x64, Program Files) or 6 (x86, Program Files (x86))
+          $iscc = @("$env:ProgramFiles\Inno Setup 7\ISCC.exe",
+                    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe") |
+                  Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found; install Inno Setup (winget install JRSoftware.InnoSetup --scope machine)" }
+          Write-Output "Using $iscc"
+          Copy-Item ".\target\release\$env:EXE_NAME" .\assets\
+          $isccArgs = @("/DMyAppVersion=$env:APP_VERSION")
+          if ($env:SIGN_EXE -eq 'true') {
+            $isccArgs += '/DSIGN'
+            $isccArgs += '/Ssigntool=signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a $f'
+          }
+          & $iscc @isccArgs .\assets\Setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       # Always available from the run page, including manual runs on other branches.
       - name: Upload build artifact
         uses: actions/upload-artifact@v6
         with:
           name: ${{ env.EXE_NAME }}
-          path: target/release/${{ env.EXE_NAME }}
+          path: |
+            target/release/${{ env.EXE_NAME }}
+            assets/Output/${{ env.SETUP_NAME }}
           retention-days: 7
 
       # ---- Publishing: main only ----
@@ -65,7 +89,7 @@ jobs:
           tag: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
           commit: ${{ github.sha }}
-          artifacts: target/release/${{ env.EXE_NAME }}
+          artifacts: target/release/${{ env.EXE_NAME }},assets/Output/${{ env.SETUP_NAME }}
           generateReleaseNotes: true
           makeLatest: true
 
@@ -83,7 +107,7 @@ jobs:
           tag: nightly
           name: Dev Build
           body: "Rolling build of ${{ github.sha }} (v${{ steps.version.outputs.version }})."
-          artifacts: target/release/${{ env.EXE_NAME }}
+          artifacts: target/release/${{ env.EXE_NAME }},assets/Output/${{ env.SETUP_NAME }}
           allowUpdates: true
           removeArtifacts: true
           replacesArtifacts: true

@@ -2,7 +2,10 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Linux Launcher"
-#define MyAppVersion "1.5"
+; CI passes the Cargo.toml version: ISCC.exe /DMyAppVersion=x.y.z
+#ifndef MyAppVersion
+  #define MyAppVersion "1.5"
+#endif
 #define MyAppPublisher "Confused Engineer"
 #define MyAppURL "https://a5f.org/"
 #define MyAppExeName "LinuxLauncher.exe"
@@ -30,7 +33,10 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+; Signing is opt-in: CI passes /DSIGN plus /Ssigntool=... only when SIGN_EXE=true.
+#ifdef SIGN
 SignTool=signtool $f
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
