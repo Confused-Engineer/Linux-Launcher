@@ -1,70 +1,120 @@
-name: Rust-Release-Nightly
+name: Build and Release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Never run two releases at once; queue instead of cancelling.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXE_NAME: LinuxLauncher.exe
+  SETUP_NAME: LinuxLauncherSetup.exe
 
 jobs:
-  build_windows_exe:
-    name: Build Windows Installer
-    # Self-hosted runner with signtool, Inno Setup and `checksum` installed.
-    runs-on: "windows"
+  build-and-release:
+    name: Build, sign and release
+    runs-on: windows
+    defaults:
+      run:
+        shell: powershell
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Test
-        run: cargo test --release --locked
-
-      - name: Build and package
         run: |
-          $ErrorActionPreference = "Stop"
-          $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages[0].version
+          cargo test --release --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build
+        run: |
           cargo build --release --locked
-          signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a ".\target\release\LinuxLauncher.exe"
-          Copy-Item -Path ".\target\release\LinuxLauncher.exe" -Destination ".\assets\"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" ".\assets\Setup.iss"
-          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
-          checksum generate ".\assets\LinuxLauncher.exe" -o ".\assets\checksums.txt"
-          checksum generate ".\assets\Output\LinuxLauncherSetup.exe" -o ".\assets\checksums.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Temporarily Save File
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: |
-            ./assets/Output/LinuxLauncherSetup.exe
-            ./assets/LinuxLauncher.exe
-            ./assets/checksums.txt
-          retention-days: 1
-
-      - name: Cleanup
-        if: always()
+      # Off until a code-signing cert is back on the runner. To re-enable, set
+      # repository variable SIGN_EXE=true (Settings > Secrets and variables > Actions > Variables).
+      - name: Sign
+        if: vars.SIGN_EXE == 'true'
         run: |
-          cargo clean
-          Remove-Item ".\assets\LinuxLauncher.exe" -ErrorAction SilentlyContinue
-          Remove-Item ".\assets\Output" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item ".\assets\checksums.txt" -ErrorAction SilentlyContinue
+          signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a ".\target\release\$env:EXE_NAME"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-  publish_release:
-    name: Publish Files
-    runs-on: "windows"
-    needs: build_windows_exe
-    steps:
-      - uses: actions/checkout@v4
+      - name: Read version and check for existing tag
+        id: version
+        run: |
+          $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages[0].version
+          $existing = git ls-remote --tags origin "refs/tags/v$version"
+          $isNew = if ($existing) { 'false' } else { 'true' }
+          Write-Output "Version $version (new: $isNew)"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "new=$isNew"
 
-      - name: Get Files
-        uses: actions/download-artifact@v4
+      # Per-user installer (PrivilegesRequired=lowest in Setup.iss).
+      - name: Build installer
+        env:
+          SIGN_EXE: ${{ vars.SIGN_EXE }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Inno Setup 7 (x64, Program Files) or 6 (x86, Program Files (x86))
+          $iscc = @("$env:ProgramFiles\Inno Setup 7\ISCC.exe",
+                    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe") |
+                  Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found; install Inno Setup (winget install JRSoftware.InnoSetup --scope machine)" }
+          Write-Output "Using $iscc"
+          Copy-Item ".\target\release\$env:EXE_NAME" .\assets\
+          $isccArgs = @("/DMyAppVersion=$env:APP_VERSION")
+          if ($env:SIGN_EXE -eq 'true') {
+            $isccArgs += '/DSIGN'
+            $isccArgs += '/Ssigntool=signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a $f'
+          }
+          & $iscc @isccArgs .\assets\Setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Always available from the run page, including manual runs on other branches.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
         with:
-          path: ./artifacts
-          merge-multiple: true
+          name: ${{ env.EXE_NAME }}
+          path: |
+            target/release/${{ env.EXE_NAME }}
+            assets/Output/${{ env.SETUP_NAME }}
+          retention-days: 7
 
-      - uses: "ModeSevenIndustrialSolutions/action-automatic-releases@latest"
+      # ---- Publishing: main only ----
+      - name: Publish versioned release
+        if: github.ref == 'refs/heads/main' && steps.version.outputs.new == 'true'
+        uses: ncipollo/release-action@v1
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "nightly"
+          tag: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          commit: ${{ github.sha }}
+          artifacts: target/release/${{ env.EXE_NAME }},assets/Output/${{ env.SETUP_NAME }}
+          generateReleaseNotes: true
+          makeLatest: true
+
+      - name: Move nightly tag to this commit
+        if: github.ref == 'refs/heads/main'
+        shell: cmd
+        run: |
+          git tag -f nightly %GITHUB_SHA% || exit /b 1
+          git push -f origin refs/tags/nightly || exit /b 1
+
+      - name: Publish nightly prerelease
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: nightly
+          name: Dev Build
+          body: "Rolling build of ${{ github.sha }} (v${{ steps.version.outputs.version }})."
+          artifacts: target/release/${{ env.EXE_NAME }},assets/Output/${{ env.SETUP_NAME }}
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
           prerelease: true
-          title: "Dev Build"
-          files: |
-            ./artifacts/Output/LinuxLauncherSetup.exe
-            ./artifacts/checksums.txt
-            ./artifacts/LinuxLauncher.exe
+          makeLatest: false

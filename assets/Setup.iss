@@ -28,7 +28,10 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+; Signing is opt-in: CI passes /DSIGN plus /Ssigntool=... only when SIGN_EXE=true.
+#ifdef SIGN
 SignTool=signtool $f
+#endif
 ; Close a running launcher before upgrading.
 CloseApplications=yes
 

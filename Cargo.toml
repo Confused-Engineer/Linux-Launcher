@@ -1,6 +1,6 @@
 [package]
 name = "linuxlauncher"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2024"
 rust-version = "1.95" # required by egui 0.37
 description = "A Linux-inspired, grid-style app launcher for Windows"
