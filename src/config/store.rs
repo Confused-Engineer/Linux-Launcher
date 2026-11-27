@@ -184,16 +184,19 @@ fn write_atomic(path: &Path, contents: &str) -> io::Result<()> {
 
 /// The per-user folder for `config.toml`.
 ///
-/// Reuses eframe's storage location (which it already resolves properly, e.g.
-/// via the Known Folders API on Windows) instead of pulling in another crate.
-/// On Windows eframe uses `%APPDATA%\<app id>\data` for its own state, so the
-/// config sits one level up, next to that folder.
+/// `%APPDATA%\LinuxLauncher` on Windows, `$XDG_CONFIG_HOME/linuxlauncher`
+/// (or `~/.config/linuxlauncher`) elsewhere.
 fn user_config_dir() -> Option<PathBuf> {
-    let eframe_dir = eframe::storage_dir(crate::APP_ID)?;
+    let absolute = |v: std::ffi::OsString| Some(PathBuf::from(v)).filter(|p| p.is_absolute());
     if cfg!(windows) {
-        eframe_dir.parent().map(Path::to_path_buf)
+        std::env::var_os("APPDATA")
+            .and_then(absolute)
+            .map(|d| d.join(crate::APP_ID))
     } else {
-        Some(eframe_dir)
+        std::env::var_os("XDG_CONFIG_HOME")
+            .and_then(absolute)
+            .or_else(|| std::env::home_dir().map(|h| h.join(".config")))
+            .map(|d| d.join(crate::APP_ID.to_lowercase()))
     }
 }
 

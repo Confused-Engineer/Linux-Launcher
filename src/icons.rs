@@ -12,7 +12,7 @@
 
 use crate::config::AppEntry;
 use crate::launch::expand_env;
-use eframe::egui::{
+use egui::{
     self, Color32, ColorImage, Context, FontId, Rect, TextureHandle, TextureOptions, Ui, ecolor,
     load::TexturePoll,
 };
@@ -260,7 +260,7 @@ pub fn paint_letter(ui: &Ui, name: &str, rect: Rect) {
 mod platform {
     //! Shell icon extraction via `IShellItemImageFactory`, which yields the
     //! same high-resolution icons Explorer shows (including for `.lnk` files).
-    use eframe::egui::ColorImage;
+    use egui::ColorImage;
     use std::path::Path;
     use windows::Win32::Foundation::SIZE;
     use windows::Win32::Graphics::Gdi::{
@@ -386,7 +386,7 @@ mod platform {
 
 #[cfg(not(windows))]
 mod platform {
-    use eframe::egui::ColorImage;
+    use egui::ColorImage;
     use std::path::Path;
 
     pub struct ComGuard;

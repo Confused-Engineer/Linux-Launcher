@@ -4,7 +4,7 @@ use super::Action;
 use super::toasts::Toasts;
 use crate::config::{AfterLaunch, AppEntry, Config, ConfigStore, Settings, Theme};
 use crate::icons::IconCache;
-use eframe::egui::{self, Grid, RichText, ScrollArea, TextEdit, Ui, Vec2};
+use egui::{self, Grid, RichText, ScrollArea, TextEdit, Ui, Vec2};
 
 const TARGET_COLUMN_WIDTH: f32 = 360.0;
 

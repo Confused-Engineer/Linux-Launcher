@@ -2,7 +2,7 @@
 
 use crate::config::{AppEntry, Group, name_from_target};
 use crate::icons::IconCache;
-use eframe::egui::{self, Context, Grid, Id, Key, RichText, TextEdit, Ui, Vec2};
+use egui::{self, Context, Grid, Id, Key, RichText, TextEdit, Ui, Vec2};
 
 const FIELD_WIDTH: f32 = 340.0;
 

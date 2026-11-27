@@ -1,6 +1,8 @@
-//! Borderless window chrome: rounded frame, custom title bar, resize edges.
+//! Borderless window chrome: frame, custom title bar, resize edges.
 
-use eframe::egui::{
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use egui::{
     self, Align, Align2, Button, CursorIcon, FontId, Id, Layout, PointerButton, Rect,
     ResizeDirection, RichText, Sense, Ui, UiBuilder, ViewportCommand, vec2,
 };
@@ -15,23 +17,14 @@ pub struct TitleBarResponse {
     pub nav_clicked: bool,
 }
 
-/// Turns off winit's drop shadow for borderless windows (Windows only).
-///
-/// egui-winit enables it for every undecorated window. To make room for the
-/// shadow, winit shifts the client area down by one pixel, which leaves an
-/// opaque strip along the top edge, and the system frame/shadow it brings
-/// back shows through our transparent rounded corners as a light outline.
-/// See winit's `WM_NCCALCSIZE` handling and egui issue #8399.
-#[cfg(windows)]
-pub fn remove_undecorated_shadow(cc: &eframe::CreationContext<'_>) {
-    use winit::platform::windows::WindowExtWindows as _;
-    if let Some(window) = cc.winit_window() {
-        window.set_undecorated_shadow(false);
-    }
-}
+/// Whether Windows rounds the window corners for us (Windows 11, set by the
+/// runner). The CPU renderer has no transparency, so we can't paint rounded
+/// corners ourselves; without native rounding the frame is square.
+static NATIVE_CORNERS: AtomicBool = AtomicBool::new(false);
 
-#[cfg(not(windows))]
-pub fn remove_undecorated_shadow(_cc: &eframe::CreationContext<'_>) {}
+pub fn set_native_corners(native: bool) {
+    NATIVE_CORNERS.store(native, Ordering::Relaxed);
+}
 
 /// Draws the window frame and title bar into the app's root `ui`, then
 /// `add_contents` in the body.
@@ -43,11 +36,17 @@ pub fn show(
 ) -> TitleBarResponse {
     let maximized = ui.input(|i| i.viewport().maximized.unwrap_or(false));
     let style = ui.global_style();
+    // Windows 11 draws the rounded corners and a thin border itself; elsewhere
+    // (Windows 10) paint a square 1px edge so the window doesn't blend into
+    // the background.
+    let edge = !maximized && !NATIVE_CORNERS.load(Ordering::Relaxed);
     let frame = egui::Frame::new()
         .fill(style.visuals.window_fill())
-        .corner_radius(if maximized { 0 } else { 10 })
-        .stroke(style.visuals.widgets.noninteractive.bg_stroke)
-        .outer_margin(if maximized { 0 } else { 1 });
+        .stroke(if edge {
+            style.visuals.widgets.noninteractive.bg_stroke
+        } else {
+            egui::Stroke::NONE
+        });
 
     let mut result = TitleBarResponse::default();
     frame.show(ui, |ui| {

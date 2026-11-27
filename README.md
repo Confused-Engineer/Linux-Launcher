@@ -109,8 +109,10 @@ from `assets/Setup.iss`; see `.github/workflows/release.yml`.
 
 ```
 src/
-  main.rs          window/bootstrap
-  app.rs           LauncherApp: state, actions, persistence, dialogs
+  main.rs          window setup and startup
+  cpu.rs           window loop + CPU renderer (winit, softbuffer, egui rasterizer)
+  app.rs           LauncherApp: state, actions, dialogs
+  session.rs       remembered tab and window placement (session.toml)
   config/          data model + group/ordering ops, TOML store, LL.ini migration
   search.rs        ranked multi-term search
   launch.rs        ShellExecuteExW launching, %VAR% expansion, reveal in Explorer
@@ -118,6 +120,11 @@ src/
   ui/              egui views: window chrome, launcher grid, tile, editor,
                    settings, toasts
 ```
+
+The UI is drawn on the CPU (no Direct3D/OpenGL), like the other Confused
+Engineer tools, so it looks and behaves the same on GPU-less VMs, over RDP and
+on real hardware. Windows 11 rounds the window corners natively; on Windows 10
+they are square.
 
 The core modules (`config`, `search`, `launch`, `icons::resolve`) contain no UI
 code and are unit tested. UI code reports user intent as `ui::Action` values,

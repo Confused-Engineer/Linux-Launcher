@@ -2,7 +2,7 @@
 
 use crate::config::AppEntry;
 use crate::icons::IconCache;
-use eframe::egui::{
+use egui::{
     self, Color32, Rect, Response, Sense, Stroke, StrokeKind, TextStyle, TextWrapMode, Ui, Vec2,
     WidgetText, vec2,
 };

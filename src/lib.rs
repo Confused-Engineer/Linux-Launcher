@@ -6,9 +6,11 @@
 
 pub mod app;
 pub mod config;
+pub mod cpu;
 pub mod icons;
 pub mod launch;
 pub mod search;
+pub mod session;
 pub mod ui;
 
 /// Human-readable application name.

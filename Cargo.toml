@@ -2,7 +2,7 @@
 name = "linuxlauncher"
 version = "2.0.0"
 edition = "2024"
-rust-version = "1.95" # required by eframe 0.37
+rust-version = "1.95" # required by egui 0.37
 description = "A Linux-inspired, grid-style app launcher for Windows"
 authors = ["Confused Engineer"]
 license = "GPL-3.0-or-later"
@@ -15,23 +15,23 @@ name = "LinuxLauncher"
 path = "src/main.rs"
 
 [dependencies]
-# Renderer: `glow` (OpenGL) instead of the default `wgpu`. A launcher draws a
-# few textured quads; wgpu adds a large DX12/Vulkan stack for no benefit.
-eframe = { version = "0.37.0", default-features = false, features = [
-    "accesskit",      # screen readers / UI Automation
-    "clipboard",      # copy/paste in text fields (e.g. pasting paths)
-    "glow",
-    "links",          # hyperlinks open in the browser (Settings → About)
-    "persistence",    # remember window geometry and the selected tab
-] }
-# Direct dependency only to enable the bundled monochrome emoji fonts, which
-# provide the icon glyphs used throughout the UI (⛭ 🗕 📂 🛡 …). Implies
-# `default_fonts`. Must stay on the same version as eframe.
+# UI: egui drawn on the CPU (src/cpu.rs), same as M365 Security Audit and
+# Windows-Configurator. No Direct3D/OpenGL, so it renders the same in GPU-less
+# VMs, RDP sessions and on real hardware.
+# `monochrome_emoji_fonts` bundles the icon glyphs used throughout the UI
+# (⛭ 🗕 📂 🛡 …) and implies `default_fonts`.
 egui = { version = "0.37.0", default-features = false, features = ["monochrome_emoji_fonts"] }
+egui-winit = { version = "0.37.0", default-features = false, features = [
+    "clipboard", # copy/paste in text fields (e.g. pasting paths)
+    "links",     # hyperlinks open in the browser (Settings → About)
+] }
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06"] }
+softbuffer = { version = "0.4.8", default-features = false }
+hdrshot-egui-backend = "0.2.0" # tile-caching CPU rasterizer for egui (lib name egui_software_backend)
+bytemuck = "1"
 # Image loaders for custom icons: local files, https URLs, raster and SVG.
 egui_extras = { version = "0.37.0", default-features = false, features = ["file", "http", "image", "svg"] }
-# Not used directly: enables the decoders egui_extras' image loader can use,
-# and `ico` for the embedded window icon.
+# Decoders for egui_extras' image loader, and `ico` for the window icon.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "ico", "webp"] }
 env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
 log = "0.4"
@@ -41,11 +41,9 @@ rust-ini = "0.21" # import of legacy LL.ini files
 rfd = "0.18.0" # native file/folder pickers
 
 [target.'cfg(windows)'.dependencies]
-# Same winit eframe uses; needed to turn off its undecorated-window shadow,
-# which draws a strip along the top of our borderless window (see ui/window.rs).
-winit = { version = "0.30", default-features = false }
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
+    "Win32_Graphics_Dwm", # native rounded corners (softbuffer can't do transparency)
     "Win32_Graphics_Gdi",
     "Win32_System_Com",
     "Win32_System_Registry",

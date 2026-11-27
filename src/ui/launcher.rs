@@ -7,7 +7,7 @@ use crate::config::{AppEntry, Config};
 use crate::icons::IconCache;
 use crate::launch;
 use crate::search;
-use eframe::egui::{
+use egui::{
     self, Align, Align2, Id, Key, Layout, PopupCloseBehavior, RichText, ScrollArea, Sense, Stroke,
     StrokeKind, TextEdit, Ui,
     containers::menu::{MenuButton, MenuConfig},

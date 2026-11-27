@@ -1,6 +1,6 @@
 //! Small transient notifications in the bottom-right corner.
 
-use eframe::egui::{self, Align2, Color32, Context, Id, RichText};
+use egui::{self, Align2, Color32, Context, Id, RichText};
 
 const DURATION_SECS: f64 = 4.0;
 

@@ -1,19 +1,19 @@
-//! The eframe application: owns state, renders pages and applies [`Action`]s.
+//! The application: owns state, renders pages and applies [`Action`]s.
+//! Driven by the CPU runner in [`crate::cpu`].
 
 use crate::config::{
     AfterLaunch, AppEntry, Config, ConfigStore, LoadOutcome, Theme, export_file, import_file,
 };
 use crate::icons::IconCache;
 use crate::launch::{self, LaunchError};
+use crate::session::{Session, WindowGeometry};
 use crate::ui::editor::{Editor, EditorOutcome};
 use crate::ui::launcher::{self, LauncherState, Tab};
 use crate::ui::settings::{self, SettingsState, SettingsTab};
 use crate::ui::toasts::Toasts;
 use crate::ui::{Action, window};
-use eframe::egui::{self, Context, Id, Key, KeyboardShortcut, Modifiers, RichText};
+use egui::{self, Context, Id, Key, KeyboardShortcut, Modifiers, RichText};
 use std::path::PathBuf;
-
-const TAB_STORAGE_KEY: &str = "launcher-tab";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Page {
@@ -44,14 +44,15 @@ pub struct LauncherApp {
     editor: Option<Editor>,
     confirm: Option<Confirm>,
     applied_theme: Option<Theme>,
+    /// Last normal (not maximized/minimized) window placement, for `session.toml`.
+    geometry: Option<WindowGeometry>,
 }
 
 impl LauncherApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        egui_extras::install_image_loaders(&cc.egui_ctx);
-        window::remove_undecorated_shadow(cc);
+    /// Builds the app around a config location and the previous session.
+    pub fn new(ctx: &Context, store: ConfigStore, session: Session) -> Self {
+        egui_extras::install_image_loaders(ctx);
 
-        let store = ConfigStore::locate();
         log::info!("config file: {}", store.path().display());
         let mut toasts = Toasts::default();
         let mut load_error = None;
@@ -76,11 +77,7 @@ impl LauncherApp {
         };
 
         let mut launcher = LauncherState::default();
-        if let Some(storage) = cc.storage
-            && let Some(tab) = eframe::get_value::<Tab>(storage, TAB_STORAGE_KEY)
-        {
-            launcher.tab = tab;
-        }
+        launcher.tab = session.tab;
 
         Self {
             store,
@@ -90,11 +87,12 @@ impl LauncherApp {
             page: Page::Launcher,
             launcher,
             settings: SettingsState::default(),
-            icons: IconCache::new(&cc.egui_ctx),
+            icons: IconCache::new(ctx),
             toasts,
             editor: None,
             confirm: None,
             applied_theme: None,
+            geometry: session.window,
         }
     }
 
@@ -509,19 +507,16 @@ impl LauncherApp {
     }
 }
 
-impl eframe::App for LauncherApp {
-    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        egui::Rgba::TRANSPARENT.to_array() // keep the rounded corners transparent
-    }
-
-    /// Non-UI work; also runs while the window is minimized, so icons that
-    /// finish extracting in the background are uploaded promptly.
-    fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+/// Entry points called by the runner each frame / at exit.
+impl LauncherApp {
+    /// Non-UI work run before [`Self::ui`] each frame.
+    pub fn logic(&mut self, ctx: &Context) {
         self.icons.poll(ctx);
         self.apply_theme(ctx);
+        self.track_geometry(ctx);
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
         // A cheap handle (Arc) so dialogs can use the context while `ui` is borrowed.
         let ctx = ui.ctx().clone();
         let ctx = &ctx;
@@ -576,7 +571,90 @@ impl eframe::App for LauncherApp {
         self.autosave();
     }
 
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, TAB_STORAGE_KEY, &self.launcher.tab);
+    /// Saves the session (tab, window placement) when the window closes.
+    pub fn on_exit(&mut self) {
+        let session = Session {
+            tab: self.launcher.tab.clone(),
+            window: (!self.store.is_portable())
+                .then_some(self.geometry)
+                .flatten(),
+        };
+        if let Err(e) = session.save(self.store.dir()) {
+            log::warn!("could not save session: {e}");
+        }
+    }
+
+    /// Remembers where the window is. The normal-size placement is kept while
+    /// maximized, so restoring after a maximized exit returns to that size.
+    fn track_geometry(&mut self, ctx: &Context) {
+        let (outer, inner, maximized, minimized) = ctx.input(|i| {
+            let v = i.viewport();
+            (
+                v.outer_rect,
+                v.inner_rect,
+                v.maximized.unwrap_or(false),
+                v.minimized.unwrap_or(false),
+            )
+        });
+        if minimized {
+            return;
+        }
+        match (outer, inner) {
+            (Some(outer), Some(inner)) if !maximized => {
+                self.geometry = Some(WindowGeometry {
+                    x: outer.min.x,
+                    y: outer.min.y,
+                    width: inner.width(),
+                    height: inner.height(),
+                    maximized: false,
+                });
+            }
+            _ => {
+                if let Some(g) = &mut self.geometry {
+                    g.maximized = maximized;
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cpu::Offscreen;
+
+    /// Renders both pages through the same CPU rasterizer the window uses.
+    /// Set `LL_SNAPSHOT_DIR` to also write the frames as PNGs for review.
+    #[test]
+    fn renders_launcher_and_settings_on_the_cpu() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ConfigStore::at(dir.path().join("config.toml"));
+        let mut off = Offscreen::new(1000, 620);
+        let mut app = LauncherApp::new(&off.ctx, store, Session::default());
+
+        for (page, name) in [(Page::Launcher, "launcher"), (Page::Settings, "settings")] {
+            app.page = page;
+            let mut img = off.frame(&mut app);
+            for _ in 0..30 {
+                // let background icon extraction finish
+                std::thread::sleep(std::time::Duration::from_millis(30));
+                img = off.frame(&mut app);
+            }
+            // Every pixel painted (opaque frame), and real content on top of
+            // the window fill: count pixels that differ from the corner colour.
+            assert!(
+                img.pixels().all(|p| p[3] == 255),
+                "{name}: transparent pixels"
+            );
+            let bg = *img.get_pixel(500, 600);
+            let content = img.pixels().filter(|p| **p != bg).count();
+            assert!(content > 20_000, "{name}: only {content} content pixels");
+            if let Some(out) = std::env::var_os("LL_SNAPSHOT_DIR") {
+                img.save(std::path::Path::new(&out).join(format!("{name}.png")))
+                    .unwrap();
+            }
+        }
+        app.on_exit();
+        assert!(Session::path(dir.path()).exists());
     }
 }
