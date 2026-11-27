@@ -1,34 +1,54 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-use eframe::egui;
+// Hide the console window on Windows in release builds.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::process::ExitCode;
 
+use linuxlauncher::{
+    APP_ID, APP_NAME, app::LauncherApp, config::ConfigStore, cpu, session::Session,
+};
 
+fn viewport(session: &Session) -> egui::ViewportBuilder {
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title(APP_NAME)
+        .with_app_id(APP_ID)
+        .with_inner_size([1000.0, 620.0])
+        .with_min_inner_size([480.0, 360.0])
+        .with_decorations(false) // We draw our own title bar.
+        .with_resizable(true);
+    // Title bar / taskbar icon; the exe icon comes from build.rs.
+    match image::load_from_memory(include_bytes!("../assets/favicon.ico")) {
+        Ok(img) => {
+            let rgba = img.to_rgba8();
+            viewport = viewport.with_icon(egui::IconData {
+                width: rgba.width(),
+                height: rgba.height(),
+                rgba: rgba.into_raw(),
+            });
+        }
+        Err(err) => log::warn!("could not load window icon: {err}"),
+    }
+    session.apply(viewport)
+}
 
-fn main() -> eframe::Result {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_decorations(cfg!(debug_assertions)) // Hide the OS-specific "chrome" around the window
-            .with_inner_size(linuxlauncher::framework::WINDOW_SIZE)
-            //.with_min_inner_size(WINDOW_SIZE)
-            //.with_resizable(true)
-            .with_icon(
-                // NOTE: Adding an icon is optional
-                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/favicon.ico")[..])
-                    .unwrap(),
-            )
-            .with_transparent(true), // To have rounded corners we need transparency
-            
+fn main() -> ExitCode {
+    env_logger::init(); // Log to stderr (set `RUST_LOG=debug`).
 
-        ..Default::default()
-    };
-    let _ = davids_standard_library::env::set_exe_dir();
-    eframe::run_native(
-        "Custom window frame", // unused title
-        options,
-        Box::new(|cc| {
-            egui_extras::install_image_loaders(&cc.egui_ctx);
-            Ok(Box::<linuxlauncher::framework::Application>::default())
-        }),
-    )
+    let store = ConfigStore::locate();
+    let session = Session::load(store.dir());
+    let viewport = viewport(&session);
+    match cpu::run(
+        viewport,
+        Box::new(move |ctx| LauncherApp::new(ctx, store, session)),
+    ) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            log::error!("{e}");
+            rfd::MessageDialog::new()
+                .set_level(rfd::MessageLevel::Error)
+                .set_title(APP_NAME)
+                .set_description(format!("The window could not be created.\n\n{e}"))
+                .show();
+            ExitCode::FAILURE
+        }
+    }
 }

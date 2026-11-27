@@ -1,0 +1,71 @@
+# Linux Launcher configuration.
+#
+# Everything here can be edited from the app (gear icon -> Settings), but the
+# file is meant to be human friendly too. Order of [[apps]] and [[groups]] is
+# the order shown in the launcher.
+#
+# [[apps]] fields:
+#   name         Label shown under the icon (required)
+#   target       What to open (required): an .exe, a shortcut (.lnk), a script,
+#                a folder, a document, a URL (https://...) or a URI
+#                (ms-settings:, mailto:, steam://...). %ENV_VARS% are expanded.
+#   args         Optional command-line arguments passed to the target.
+#   working_dir  Optional start-in folder (defaults to the target's folder).
+#   icon         Optional image path/URL, or an .exe/.dll/.lnk to take the icon
+#                from. Leave empty to use the target's own icon automatically.
+#   group        Optional group name (see [[groups]]).
+#   tags         Optional extra search keywords, e.g. ["monitor", "cpu"].
+#   favorite     true to show in the Favorites tab.
+#   run_as_admin true to always launch elevated.
+
+version = 1
+
+[settings]
+icon_size = 80.0
+theme = "system"
+after_launch = "nothing"
+show_favorites = true
+group_headers = true
+
+[[groups]]
+name = "System"
+
+[[groups]]
+name = "Web"
+
+[[apps]]
+name = "File Explorer"
+target = "explorer.exe"
+group = "System"
+favorite = true
+
+[[apps]]
+name = "Task Manager"
+target = "taskmgr.exe"
+group = "System"
+tags = ["processes", "performance"]
+favorite = true
+
+[[apps]]
+name = "Settings"
+target = "ms-settings:"
+group = "System"
+
+[[apps]]
+name = "Volume Mixer"
+target = "ms-settings:apps-volume"
+group = "System"
+tags = ["sound", "audio"]
+
+[[apps]]
+name = "Terminal"
+target = "cmd.exe"
+working_dir = "%USERPROFILE%"
+group = "System"
+tags = ["shell", "console"]
+
+[[apps]]
+name = "Google"
+target = "https://www.google.com/"
+group = "Web"
+tags = ["search"]

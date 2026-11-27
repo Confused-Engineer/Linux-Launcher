@@ -27,9 +27,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Test
+        run: |
+          cargo test --release --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build
         run: |
-          cargo build --release
+          cargo build --release --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Off until a code-signing cert is back on the runner. To re-enable, set
